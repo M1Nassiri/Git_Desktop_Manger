@@ -67,7 +67,16 @@ def load_state(iid):
     except: return {}
 def save_state(iid, data):
     os.makedirs(STATE_DIR, exist_ok=True)
-    with open(state_path(iid), "w") as f: json.dump(data, f, indent=2)
+    fpath = state_path(iid)
+    existing = {}
+    try:
+        with open(fpath) as f:
+            existing = json.load(f)
+    except Exception:
+        pass
+    existing.update(data)
+    with open(fpath, "w") as f:
+        json.dump(existing, f, indent=2)
 
 # KWin rules (passive fallback – covers XWayland + X11 sessions)
 def setup_kwin_rules():
@@ -219,8 +228,8 @@ def _pil_to_qpixmap(img):
     img.convert("RGBA").save(buf, format="PNG")
     pm = QPixmap(); pm.loadFromData(buf.getvalue()); return pm
 
-def load_frames(path, w, h):
-    resample = getattr(Image, "LANCZOS", Image.BICUBIC)
+def load_frames(path):
+    """Load all GIF frames at native resolution into QPixmaps."""
     pixmaps, delays = [], []
     try:
         img = Image.open(path)
@@ -229,7 +238,7 @@ def load_frames(path, w, h):
             try: img.seek(n)
             except EOFError: break
             frame = img.convert("RGBA")
-            pixmaps.append(_pil_to_qpixmap(frame.resize((w,h), resample)))
+            pixmaps.append(_pil_to_qpixmap(frame))  # native size, no resize
             delays.append(max(img.info.get("duration",100), 20))
             n += 1
     except Exception as e: print(f"[gif] load error: {e}", file=sys.stderr)
@@ -237,9 +246,11 @@ def load_frames(path, w, h):
 
 # Overlay widget
 class GifOverlay(QWidget):
-    def __init__(self, path, auto_scale, opacity, no_save, instance_id):
+    def __init__(self, path, auto_scale, opacity, speed, no_save, instance_id):
         super().__init__(None)
         self.path = path; self.no_save = no_save; self.instance_id = instance_id
+        self.speed = max(0.1, min(5.0, speed))  # clamp between 0.1x and 5.0x
+        self._opacity = max(0.1, min(1.0, opacity))  # stored for painter use
         self._pixmaps = []; self._delays = []; self._idx = 0; self._current_pm = None
         self._timer = QTimer(self); self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._next_frame)
@@ -258,11 +269,19 @@ class GifOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
-        self.setWindowOpacity(opacity)
+        # Cross-platform opacity: setWindowOpacity is X11-only.
+        # We store _opacity and apply it in paintEvent via QPainter,
+        # which works on both X11 and Wayland.
+        self.setWindowOpacity(self._opacity)  # X11 fallback
+        if (wh := self.windowHandle()):
+            wh.setOpacity(self._opacity)  # Wayland / generic QPA
         self.resize(self.cw, self.ch); self.move(self.cx, self.cy)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_menu)
         self._reload_frames()
+        self._scaled_pm = None  # cached scaled frame
+        self._size_dirty = True  # mark cache invalid on init
+        self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -291,28 +310,44 @@ class GifOverlay(QWidget):
             apply_x11_hints(wid)
 
     def paintEvent(self, _):
+        # Lazy-scale: only scale the current frame when size changes
+        if self._size_dirty and self._current_pm and not self._current_pm.isNull():
+            self._scaled_pm = self._current_pm.scaled(
+                self.cw, self.ch,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.FastTransformation  # nearest-neighbor = fastest
+            )
+            self._size_dirty = False
+
         qp = QPainter(self)
+        qp.setOpacity(self._opacity)
         qp.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
         qp.fillRect(self.rect(), QColor(0,0,0,0))
-        if self._current_pm:
+        if self._scaled_pm and not self._scaled_pm.isNull():
             qp.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
-            qp.drawPixmap(0,0, self._current_pm)
+            # Draw cached scaled pixmap 1:1 - fastest path, no transform
+            qp.drawPixmap(0, 0, self._scaled_pm)
         qp.end()
 
     def _reload_frames(self):
+        """Load frames from disk. Called once at startup."""
         self._timer.stop()
-        self._pixmaps, self._delays = load_frames(self.path, self.cw, self.ch)
-        self._idx = 0; self._current_pm = None
+        self._pixmaps, self._delays = load_frames(self.path)
+        self._idx = 0; self._current_pm = None; self._scaled_pm = None
         if self._pixmaps:
-            self._current_pm = self._pixmaps[0]; self.update()
+            self._current_pm = self._pixmaps[0]
+            self._size_dirty = True
+            self.update()
             self._idx = 1 % len(self._pixmaps)
-            self._timer.start(self._delays[0])
+            self._timer.start(max(10, int(self._delays[0] / self.speed)))
 
     def _next_frame(self):
         if not self._pixmaps: return
-        self._current_pm = self._pixmaps[self._idx]; self.update()
+        self._current_pm = self._pixmaps[self._idx]
+        self._size_dirty = True  # new frame needs scaling
+        self.update()
         self._idx = (self._idx+1) % len(self._pixmaps)
-        self._timer.start(self._delays[self._idx-1])  # use previous frame delay
+        self._timer.start(max(10, int(self._delays[self._idx-1] / self.speed)))  # apply speed, min 10ms
 
     def mousePressEvent(self, e):
         if e.button() == Qt.MouseButton.LeftButton and self.windowHandle():
@@ -322,13 +357,39 @@ class GifOverlay(QWidget):
             p = self.pos(); self.cx, self.cy = p.x(), p.y(); self._persist()
     def wheelEvent(self, e):
         d = +1 if e.angleDelta().y()>0 else -1
-        self.cw = max(32, int(self.cw*(1+d*0.05)))
-        self.ch = max(32, int(self.ch*(1+d*0.05)))
-        self.resize(self.cw, self.ch); self._reload_frames(); self._persist()
+        if e.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            # Ctrl+wheel = speed control
+            self.speed = round(max(0.1, min(5.0, self.speed + d * 0.1)), 1)
+            self._timer.stop()
+            if self._pixmaps:
+                self._timer.start(max(10, int(self._delays[self._idx-1] / self.speed)))
+            self.setWindowTitle(f"{APP_ID} | Speed: {self.speed}x")
+            QTimer.singleShot(2000, lambda: self.setWindowTitle(APP_ID))
+            self._persist()
+        elif e.modifiers() == Qt.KeyboardModifier.ShiftModifier:
+            # Shift+wheel = opacity control
+            self._opacity = round(max(0.1, min(1.0, self._opacity + d * 0.05)), 2)
+            self.setWindowOpacity(self._opacity)
+            if (wh := self.windowHandle()):
+                wh.setOpacity(self._opacity)
+            self.update()
+            self.setWindowTitle(f"{APP_ID} | Opacity: {int(self._opacity*100)}%")
+            QTimer.singleShot(2000, lambda: self.setWindowTitle(APP_ID))
+            self._persist()
+        else:
+            # Normal wheel = size control (FAST - no frame reload!)
+            self.cw = max(32, int(self.cw*(1+d*0.05)))
+            self.ch = max(32, int(self.ch*(1+d*0.05)))
+            self.resize(self.cw, self.ch)
+            self._size_dirty = True  # mark scaled cache invalid
+            self.update()  # just repaint with new size, frames stay in memory
+            self._persist()
     def _show_menu(self, pos):
         m = QMenu(self)
         m.addAction("Reset size",     self._reset_size)
         m.addAction("Reset position", self._reset_position)
+        m.addAction("Reset opacity",  self._reset_opacity)
+        m.addAction("Reset speed",    self._reset_speed)
         m.addSeparator()
         m.addAction("Quit", QApplication.instance().quit)
         m.exec(self.mapToGlobal(pos))
@@ -336,19 +397,40 @@ class GifOverlay(QWidget):
         scr = QApplication.primaryScreen().size()
         self.ch = max(32, int(scr.height()*0.25))
         self.cw = max(32, int(self.nat_w*self.ch/self.nat_h))
-        self.resize(self.cw, self.ch); self._reload_frames(); self._persist()
+        self.resize(self.cw, self.ch)
+        self._size_dirty = True
+        self.update()
+        self._persist()
     def _reset_position(self):
         self.cx, self.cy = 100, 100
         self.move(self.cx, self.cy); self._persist()
+    def _reset_opacity(self):
+        self._opacity = 1.0
+        self.setWindowOpacity(1.0)
+        if (wh := self.windowHandle()):
+            wh.setOpacity(1.0)
+        self.update()
+        self._persist()
+
+    def _reset_speed(self):
+        self.speed = 1.0
+        self._timer.stop()
+        if self._pixmaps:
+            self._timer.start(max(10, int(self._delays[self._idx-1] / self.speed)))
+        self._persist()
     def _persist(self):
         if not self.no_save:
-            save_state(self.instance_id, {"x":self.cx,"y":self.cy,"w":self.cw,"h":self.ch})
+            save_state(self.instance_id, {
+                "x": self.cx, "y": self.cy, "w": self.cw, "h": self.ch,
+                "opacity": self._opacity, "speed": self.speed,
+            })
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("gif")
     p.add_argument("--auto-scale", type=float, default=0.25)
     p.add_argument("--opacity", type=float, default=1.0)
+    p.add_argument("--speed", type=float, default=1.0)
     p.add_argument("--no-save", action="store_true")
     p.add_argument("--instance-id", default="default")
     a = p.parse_args()
@@ -364,7 +446,7 @@ def main():
     app.setApplicationDisplayName("GIF Desktop Overlay")
     app.setDesktopFileName(APP_ID)  # ← CRITICAL: sets Wayland app_id to "gif-desktop"
 
-    ov = GifOverlay(a.gif, a.auto_scale, a.opacity, a.no_save, a.instance_id)
+    ov = GifOverlay(a.gif, a.auto_scale, a.opacity, a.speed, a.no_save, a.instance_id)
     ov.show()
     sys.exit(app.exec())
 
