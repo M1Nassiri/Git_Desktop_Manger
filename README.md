@@ -1,6 +1,6 @@
-[README.md](https://github.com/user-attachments/files/27462377/README.md)# GIF Desktop Manager
+# GIF Desktop Manager
 
-> Animated GIF overlays on your Linux desktop — floating, draggable, resizable, with per-instance autostart, monitor pinning, and native X11 + Wayland support.
+Animated GIF overlays for your Linux desktop — floating, draggable, resizable, always-on-top, with per-instance persistence and native X11 + Wayland support.
 
 ---
 
@@ -8,6 +8,7 @@
 
 - [Features](#features)
 - [Requirements](#requirements)
+- [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Manager TUI](#manager-tui)
 - [Overlay Controls](#overlay-controls)
@@ -15,135 +16,135 @@
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
 - [Uninstallation](#uninstallation)
+- [License](#license)
 
 ---
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **Multiple Overlays** | Run any number of GIFs simultaneously, each independently configurable |
-| **Drag to Move** | Left-click and drag anywhere on the overlay to reposition |
-| **Scroll to Resize** | Mouse wheel scales the overlay smoothly (5% increments) |
-| **Opacity Control** | Per-overlay transparency from 0% to 100% |
-| **Auto-scale** | Set initial size as a fraction of screen height |
-| **Persistent State** | Position and size remembered across restarts |
-| **Autostart** | Optional systemd user services or XDG autostart entries |
-| **Always on Top** | Floats above all other windows |
-| **Taskbar Hidden** | No clutter in your taskbar or alt-tab switcher |
-| **X11 Support** | `_NET_WM_STATE` hints via `xprop`/`wmctrl` |
-| **Wayland Support** | KWin scripting API for native Wayland compositor control |
-| **KDE Plasma** | First-class support with KWin window rules |
+- Run any number of animated GIF overlays simultaneously, each independently configured
+- Drag to move, scroll to resize, Shift+scroll to adjust opacity, Ctrl+scroll to adjust speed
+- Position, size, opacity, and speed all persist across restarts
+- Per-instance autostart via systemd user services or XDG `.desktop` entries
+- Always-on-top, hidden from taskbar, pager, and alt-tab switcher
+- Full X11 support via `_NET_WM_STATE` hints
+- Native Wayland support via KWin scripting API (no window ID required)
+- KDE Plasma first-class: KWin rules + staggered compositor script injection
 
 ---
 
 ## Requirements
 
-### Minimum
+### Required
 
-| Dependency | Purpose | Install Command |
-|------------|---------|-----------------|
-| `python3` ≥ 3.8 | Runtime | `sudo pacman -S python` / `sudo apt install python3` |
-| `pip3` | Package installer | bundled with python3 |
-| `Pillow` | GIF decoding | `pip3 install --user Pillow` |
-| `PyQt6` **or** `PySide6` | Qt GUI framework | `pip3 install --user PyQt6` |
+| Package | Purpose | Install |
+|---------|---------|---------|
+| Python ≥ 3.8 | Runtime | `sudo apt install python3` |
+| Pillow | GIF decoding | `pip3 install --user Pillow` |
+| PyQt6 **or** PySide6 | Qt GUI | `pip3 install --user PyQt6` |
 
 ### Recommended
 
-| Dependency | Purpose | Install Command |
-|------------|---------|-----------------|
-| `dbus-send` | KWin D-Bus scripting | `sudo pacman -S dbus` / `sudo apt install dbus-bin` |
-| `xprop` | X11 window hints | `sudo pacman -S xorg-xprop` / `sudo apt install x11-utils` |
-| `wmctrl` | X11 window control | `sudo pacman -S wmctrl` / `sudo apt install wmctrl` |
-| `systemd` | User services for autostart | usually pre-installed |
+| Package | Purpose | Install |
+|---------|---------|---------|
+| `dbus-send` | KWin D-Bus scripting (Wayland) | `sudo apt install dbus-bin` |
+| `xprop` | X11 window hints | `sudo apt install x11-utils` |
+| `wmctrl` | X11 window management | `sudo apt install wmctrl` |
+| `systemd` | User service autostart | usually pre-installed |
 
 ### Desktop Environment Support
 
-| DE/WM | X11 | Wayland | Notes |
-|-------|-----|---------|-------|
-| **KDE Plasma** | ✅ | ✅ | Full support via KWin scripting + rules |
-| **GNOME** | ✅ | ⚠️ | Wayland: may need manual window rules |
-| **Sway/i3** | N/A | ✅/✅ | Uses `layer-shell` protocol (future) |
-| **Hyprland** | N/A | ⚠️ | Partial: window rules in config |
-| **XFCE** | ✅ | N/A | X11 only |
-| **LXQt** | ✅ | N/A | X11 only |
-
-> **Note:** Wayland support depends on the compositor exposing window management APIs. KWin (KDE Plasma) is the most mature target. Other compositors may require manual window rule configuration.
+| DE / WM | X11 | Wayland | Notes |
+|---------|-----|---------|-------|
+| KDE Plasma | ✅ | ✅ | Full support via KWin scripting + window rules |
+| GNOME | ✅ | ⚠️ | Wayland: manual window rules may be needed |
+| Sway / i3 | — | ⚠️ | `layer-shell` support planned |
+| Hyprland | — | ⚠️ | Partial: configure window rules manually |
+| XFCE | ✅ | — | X11 only |
+| LXQt | ✅ | — | X11 only |
 
 ---
 
-### What the installer does
+## Installation
 
-1. **Checks dependencies** — verifies Python 3.8+, pip3, and display server
-2. **Installs Python packages** — Pillow and PyQt6 (if missing)
-3. **Checks optional tools** — dbus-send, xprop, wmctrl
-4. **Backups existing install** — saves previous version to `~/.config/gif-desktop/.backup/`
-5. **Creates directories** — `~/.local/bin`, `~/.config/gif-desktop`, systemd user dir, etc.
-6. **Installs core files** — `gif_desktop.py`, `gif_manager.py`, `gif_config.py`
-7. **Installs wrapper** — `gif-desktop` command in `~/.local/bin/`
-8. **Installs .desktop file** — `~/.local/share/applications/gif-desktop.desktop` for KWin matching
-9. **Configures KWin rules** — adds window rules for always-on-top + skip-taskbar
-10. **Updates PATH** — adds `~/.local/bin` to `.bashrc`, `.zshrc`, or `config.fish`
-11. **Reloads systemd** — `systemctl --user daemon-reload`
+### From source
 
-### File Layout After Install
+```bash
+git clone https://github.com/yourname/gif-desktop.git
+cd gif-desktop
+chmod +x install.sh
+./install.sh
+```
+
+The installer will:
+
+1. Check for Python 3.8+, Pillow, PyQt6/PySide6 and install missing packages
+2. Check optional tools: `dbus-send`, `xprop`, `wmctrl`
+3. Back up any existing install to `~/.config/gif-desktop/.backup/`
+4. Install core files to `~/.local/bin/`
+5. Install the `.desktop` file for KWin app_id matching
+6. Write KWin window rules (always-on-top, skip taskbar/pager/switcher)
+7. Add `~/.local/bin` to your shell's PATH if needed
+8. Run `systemctl --user daemon-reload`
+
+### File layout after install
 
 ```
 ~/.local/bin/
-├── gif-desktop          # Launcher wrapper script
+├── gif-desktop          # Launcher wrapper
 ├── gif_desktop.py       # GIF renderer (Qt overlay)
 ├── gif_manager.py       # TUI manager (curses)
 └── gif_config.py        # Configuration bridge
 
 ~/.config/gif-desktop/
-├── instances/           # Per-overlay state JSON files
+├── instances/           # Per-overlay state files
 │   ├── a1b2c3d4.state.json
-│   └── e5f6g7h8.state.json
-└── .backup/             # Installation backups
-    └── 20260506-185230/
+│   └── e5f6a7b8.state.json
+└── .backup/
 
 ~/.config/systemd/user/
-└── gif-desktop-<name>-<id>.service   # Created at runtime
+└── gif-desktop-<name>-<id>.service
 
 ~/.config/autostart/
-└── gif-desktop-<name>-<id>.desktop   # Optional XDG autostart
+└── gif-desktop-<name>-<id>.desktop    # XDG autostart (optional)
 
 ~/.local/share/applications/
-└── gif-desktop.desktop    # Application identity for KWin
+└── gif-desktop.desktop                # App identity for KWin Wayland matching
 
-~/.config/kwinrulesrc      # KWin window rules (always-on-top, etc.)
+~/.config/kwinrulesrc                  # KWin window rules
 ```
 
 ---
 
 ## Quick Start
 
-### Launch the Manager
+### Launch the manager
 
 ```bash
-# If ~/.local/bin is in your PATH:
 gif-desktop
 
-# Or run directly:
+# or directly:
 python3 ~/.local/bin/gif_manager.py
 ```
 
-### Add Your First GIF
+### Add your first overlay
 
 1. Press `a` in the manager
-2. Enter a name (e.g., `nyan-cat`)
-3. Enter the path to your GIF (e.g., `~/Pictures/nyan.gif`)
-4. Set opacity (0.0–1.0, default 1.0)
-5. Set auto-scale (0.0–1.0 fraction of screen height, default 0.25)
-6. Enable autostart if desired
-7. The overlay appears immediately!
+2. Enter a name with no spaces (e.g. `nyan-cat`)
+3. Enter the path to your GIF (e.g. `~/Pictures/nyan.gif`)
+4. Set opacity `0.1`–`1.0` (default `1.0`)
+5. Set auto-scale as a fraction of screen height (default `0.25`)
+6. Set playback speed (default `1.0`)
+7. Choose whether to autostart on login
+8. The overlay appears immediately
 
-### Run a Single GIF (without manager)
+### Run a single GIF directly
 
 ```bash
 python3 ~/.local/bin/gif_desktop.py ~/Pictures/animation.gif \
     --opacity 0.8 \
     --auto-scale 0.3 \
+    --speed 1.0 \
     --instance-id my-gif
 ```
 
@@ -151,117 +152,159 @@ python3 ~/.local/bin/gif_desktop.py ~/Pictures/animation.gif \
 
 ## Manager TUI
 
-The manager provides a terminal-based user interface for managing all your overlays.
+The manager is a terminal UI built with `curses`. Launch it with `gif-desktop` or `python3 gif_manager.py`.
 
-### Controls
+### Keybindings
 
 | Key | Action |
 |-----|--------|
-| `↑` / `↓` or `j` / `k` | Navigate list |
-| `Enter` | Open action menu for selected item |
-| `a` | **Add** new GIF overlay |
-| `d` | **Delete** selected overlay |
-| `s` | **Start/Stop** toggle |
-| `e` | Toggle **autostart** for selected |
-| `E` | Toggle **autostart for ALL** |
-| `i` | Show **info** for selected |
-| `m` | **Manage** monitor/workspace |
-| `r` | **Refresh** list |
-| `q` / `Ctrl+C` | **Quit** |
+| `↑` / `k` | Move cursor up |
+| `↓` / `j` | Move cursor down |
+| `a` | Add a new overlay |
+| `s` | Start / stop selected overlay |
+| `e` | Toggle autostart for selected overlay |
+| `d` | Delete selected overlay |
+| `r` | Refresh list |
+| `q` / `Esc` | Quit |
+
+### Columns
+
+The list shows: **Name**, **Status** (running/stopped), **Auto** (autostart on/off), **Opacity**, **Scale**, **Speed**, and the GIF **filename**.
+
+---
 
 ## Overlay Controls
 
-When a GIF overlay is running, interact with it directly:
+Interact with a running overlay directly on your desktop.
 
-| Action | Result |
+### Mouse
+
+| Input | Action |
+|-------|--------|
+| Left-click + drag | Move the overlay |
+| Scroll wheel | Resize (±5% per tick) |
+| Shift + scroll | Adjust opacity (±5% per tick) |
+| Ctrl + scroll | Adjust playback speed (±0.1× per tick) |
+| Right-click | Open context menu |
+
+### Context menu (right-click)
+
+| Option | Effect |
 |--------|--------|
-| **Left-click + drag** | Move the overlay anywhere on screen |
-| **Scroll wheel up** | Grow overlay by 5% |
-| **Scroll wheel down** | Shrink overlay by 5% |
-| **Right-click** | Context menu (Reset size, Reset position, Quit) |
+| Reset size | Return to auto-scale default |
+| Reset position | Move to (100, 100) |
+| Reset opacity | Set opacity back to 1.0 |
+| Reset speed | Set speed back to 1.0× |
+| Quit | Close this overlay |
 
-### Context Menu
+All changes — position, size, opacity, speed — are saved automatically and restored on next start.
 
-- **Reset size** — Returns to auto-scale default
-- **Reset position** — Moves to (100, 100)
-- **Quit** — Closes this overlay
+---
 
-### How Wayland Support Works
+## Architecture
 
-On native Wayland, traditional X11 window hints (`xprop`, `wmctrl`, `_NET_WM_STATE`) are ignored by the compositor. Instead, we use:
+### How Wayland support works
 
-1. **`app.setDesktopFileName("gif-desktop")`** — Sets the Wayland `app_id` to match our `.desktop` file
-2. **KWin scripting API** — Injects JavaScript into KWin via D-Bus that:
-   - Matches windows by `desktopFile`, `resourceClass`, `resourceName`, or `caption`
-   - Sets `client.keepAbove = true` (always on top)
-   - Sets `client.skipTaskbar = true` (hide from taskbar)
-   - Sets `client.skipPager = true` (hide from pager)
-   - Sets `client.skipSwitcher = true` (hide from alt-tab)
-3. **Staggered execution** — The script runs at 0ms, 200ms, 600ms, 1500ms, and 3000ms after window show because KWin may not register the window immediately
-4. **KWin rules file** — Persistent fallback that applies on compositor restart
+On native Wayland, X11 hints (`xprop`, `wmctrl`, `_NET_WM_STATE`) are ignored by the compositor. The renderer uses two complementary mechanisms:
+
+**1. Wayland app_id**
+`app.setDesktopFileName("gif-desktop")` sets the Wayland `app_id` to match the installed `.desktop` file, giving KWin a reliable identity to match against.
+
+**2. KWin scripting API**
+A JavaScript snippet is injected into KWin via D-Bus at runtime. It matches windows by `desktopFile`, `resourceClass`, `resourceName`, or `caption`, then sets:
+- `client.keepAbove = true`
+- `client.skipTaskbar = true`
+- `client.skipPager = true`
+- `client.skipSwitcher = true`
+
+**3. Staggered execution**
+The script runs at 0 ms, 200 ms, 600 ms, 1500 ms, and 3000 ms after the window appears, because KWin may not register the window immediately on Wayland.
+
+**4. KWin rules file**
+A persistent fallback in `~/.config/kwinrulesrc` that applies the same rules on compositor restart, covering XWayland windows too.
+
+### Component overview
+
+```
+gif_manager.py        curses TUI — list, add, start/stop, autostart, delete
+gif_desktop.py        Qt overlay — renders frames, handles input, persists state
+gif_config.py         shared bridge — instance I/O, systemd service generation, detection
+```
+
+Each overlay is a standalone `gif_desktop.py` process, managed as a systemd user service. The manager never holds any overlay state in memory — it always reads from the state JSON files on disk.
 
 ---
 
 ## Configuration
 
-### Instance State Files
+### Instance state file
 
-Each overlay stores its state in `~/.config/gif-desktop/instances/<id>.state.json`:
+Each overlay stores its full state in `~/.config/gif-desktop/instances/<id>.state.json`. This file is the single source of truth — both the manager and the renderer read and write to it.
 
 ```json
 {
   "name": "nyan-cat",
   "path": "/home/user/Pictures/nyan.gif",
-  "opacity": 1.0,
+  "opacity": 0.85,
   "auto_scale": 0.25,
+  "speed": 1.2,
   "autostart": true,
   "display": ":1",
   "monitor": 0,
   "sticky": true,
   "workspace": null,
-  "enabled": true
+  "enabled": true,
+  "x": 240,
+  "y": 900,
+  "w": 320,
+  "h": 180
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `name` | string | Human-readable identifier |
-| `path` | string | Absolute path to GIF file |
-| `opacity` | float | 0.0–1.0 transparency |
-| `auto_scale` | float | Fraction of screen height (0.0–1.0) |
-| `autostart` | bool | Start on login |
-| `display` | string | DISPLAY environment variable |
-| `monitor` | int \| null | Monitor index to pin to |
-| `sticky` | bool | Show on all workspaces |
-| `workspace` | int \| null | Specific workspace (null = all) |
-| `enabled` | bool | Whether the instance is active |
+| `name` | string | Human-readable identifier, used in the service name |
+| `path` | string | Absolute path to the GIF file |
+| `opacity` | float | Window opacity, 0.1–1.0 |
+| `auto_scale` | float | Initial height as a fraction of screen height |
+| `speed` | float | Playback speed multiplier, 0.1–5.0 |
+| `autostart` | bool | Whether to enable the systemd service on login |
+| `monitor` | int / null | Monitor index to pin to (null = primary) |
+| `sticky` | bool | Show on all virtual desktops |
+| `workspace` | int / null | Pin to a specific workspace (null = all) |
+| `x`, `y` | int | Last saved window position |
+| `w`, `h` | int | Last saved window size |
 
-### Systemd Service Template
+### Systemd service
 
-At runtime, the manager generates systemd user services:
+The manager generates a user service for each overlay:
 
 ```ini
 [Unit]
 Description=GIF Desktop Overlay: nyan-cat
 After=graphical-session.target
+PartOf=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/env python3 /home/user/.local/bin/gif_desktop.py \
-    "/home/user/Pictures/nyan.gif" \
+ExecStartPre=/bin/sleep 3
+ExecStart=python3 /home/user/.local/bin/gif_desktop.py \
+    '/home/user/Pictures/nyan.gif' \
     --instance-id a1b2c3d4 \
     --opacity 1.0 \
-    --auto-scale 0.25
-Restart=always
+    --auto-scale 0.25 \
+    --speed 1.0
+Restart=on-failure
+RestartSec=5
+PassEnvironment=DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS \
+                QT_QPA_PLATFORM XDG_SESSION_TYPE
 Environment=PYTHONUNBUFFERED=1
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target
 ```
 
-### KWin Rules
-
-The installer configures `~/.config/kwinrulesrc`:
+### KWin rules
 
 ```ini
 [1]
@@ -281,128 +324,80 @@ skipswitcher=true
 skipswitcherrule=2
 ```
 
-| Rule | Value | Meaning |
-|------|-------|---------|
-| `above` + `aboverule=2` | Force | Always keep window above others |
-| `skiptaskbar` + `rule=2` | Force | Hide from taskbar |
-| `skippager` + `rule=2` | Force | Hide from desktop pager |
-| `skipswitcher` + `rule=2` | Force | Hide from alt-tab switcher |
+`aboverule=2` / `skiptaskbarrule=2` means "Force" — KWin enforces these regardless of what the application requests.
 
 ---
 
 ## Troubleshooting
 
-### Overlay doesn't stay on top (Wayland)
+### Overlay won't stay on top (Wayland)
 
-1. Check that `dbus-send` is installed: `which dbus-send`
-2. Verify the `.desktop` file exists: `ls ~/.local/share/applications/gif-desktop.desktop`
-3. Check KWin script execution in terminal:
+1. Confirm `dbus-send` is installed: `which dbus-send`
+2. Check the `.desktop` file is in place: `ls ~/.local/share/applications/gif-desktop.desktop`
+3. Run the renderer directly and watch stderr for `[kwin-script]` errors:
    ```bash
-   # Run the renderer directly and watch stderr
    python3 ~/.local/bin/gif_desktop.py ~/your.gif --instance-id test
    ```
-4. Look for `[kwin-script]` error messages
-5. Try reloading KWin: `killall kwin_wayland` or log out/in
+4. Reload KWin: `dbus-send --session --dest=org.kde.KWin /KWin org.kde.KWin.reconfigure`
+5. Log out and back in if KWin rules haven't been picked up yet
 
-### Overlay shows in taskbar (X11)
+### Overlay appears in taskbar (X11)
 
-1. Check `xprop` is installed: `which xprop`
-2. Check `wmctrl` is installed: `which wmctrl`
-3. Verify KWin rules are configured: `cat ~/.config/kwinrulesrc | grep -A5 gif-desktop`
-4. Try reconfiguring KWin: `dbus-send --session --dest=org.kde.KWin /KWin org.kde.KWin.reconfigure`
+1. Check `xprop` and `wmctrl` are installed
+2. Verify KWin rules: `grep -A5 gif-desktop ~/.config/kwinrulesrc`
 
-### GIF doesn't load
+### GIF won't load
 
-1. Verify the file exists and is a valid GIF:
-   ```bash
-   python3 -c "from PIL import Image; img=Image.open('your.gif'); print(f'{img.size} {img.n_frames} frames')"
-   ```
-2. Check file permissions: `ls -l your.gif`
-3. Try an absolute path instead of `~` shortcut
+```bash
+python3 -c "from PIL import Image; img=Image.open('your.gif'); print(img.size)"
+```
+
+Check the file exists, is a valid GIF, and that you're using an absolute path (no `~`).
 
 ### Manager won't start
 
-1. Check terminal size — minimum 24 rows × 80 columns required
-2. Verify `curses` is available: `python3 -c "import curses; print('OK')"`
-3. Check UTF-8 locale: `echo $LANG` (should contain `UTF-8`)
+- Terminal must be at least 80 columns × 24 rows
+- Verify UTF-8 locale: `echo $LANG` (must contain `UTF-8`)
+- Test curses: `python3 -c "import curses; print('OK')"`
 
 ### Autostart doesn't work
 
-1. Check systemd user daemon: `systemctl --user status`
-2. Verify service file was created: `ls ~/.config/systemd/user/gif-desktop-*.service`
-3. Check service status: `systemctl --user status gif-desktop-<name>-<id>`
-4. Ensure graphical session target exists: `systemctl --user list-units | grep graphical`
+```bash
+systemctl --user status gif-desktop-<name>-<id>
+journalctl --user -u gif-desktop-<name>-<id> -n 50
+```
+
+Ensure the graphical session target is available:
+```bash
+systemctl --user list-units | grep graphical
+```
 
 ### High CPU usage
 
-- Reduce GIF frame count or resolution
-- Lower the opacity (less compositing work)
-- Use smaller auto-scale values
+- Use a smaller GIF (fewer frames, lower resolution)
+- Reduce auto-scale so less compositing is needed
+- Lower opacity slightly
 
 ---
 
 ## Uninstallation
 
-### Full uninstall (removes everything)
-
 ```bash
+# Full removal
 ./uninstall.sh
-```
 
-### Keep your GIF list
-
-```bash
+# Remove binaries and services, keep your GIF list
 ./uninstall.sh --keep-config
 ```
 
-This removes all binaries and services but preserves `~/.config/gif-desktop/instances/` so you can reinstall later without re-adding all your GIFs.
+`--keep-config` preserves `~/.config/gif-desktop/instances/` so you can reinstall without re-adding everything.
 
-### What gets removed
-
-- Binaries from `~/.local/bin/`
-- Systemd user services (`gif-desktop-*.service`)
-- XDG autostart entries (`gif-desktop-*.desktop`)
-- `.desktop` file from `~/.local/share/applications/`
-- Running `gif_desktop.py` processes (killed)
-- PATH entries from shell RC files
-- Config directory (unless `--keep-config`)
-
-> **Note:** KWin rules in `~/.config/kwinrulesrc` are NOT removed automatically to avoid corrupting other rules. Remove manually if desired.
+> KWin rules in `~/.config/kwinrulesrc` are not removed automatically to avoid breaking other rules. Remove the `[gif-desktop]` section manually if desired.
 
 ---
 
-## Development
+## License
 
-### Project Structure
+GIF Desktop Manager is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License v3.0** or later.
 
-```
-gif-desktop/
-├── gif_desktop.py      # Qt-based GIF renderer
-├── gif_manager.py      # curses TUI manager
-├── gif_config.py       # Configuration bridge & utilities
-├── install.sh          # Comprehensive installer
-├── uninstall.sh        # Clean uninstaller
-└── README.md           # This file
-```
-
-### Adding a New Feature
-
-1. **Renderer changes** → Edit `gif_desktop.py`
-2. **TUI changes** → Edit `gif_manager.py`
-3. **Config/API changes** → Edit `gif_config.py`
-4. **Test locally** → Run `python3 gif_manager.py` from the repo
-5. **Update README** → Document new controls/behavior
-
-### Debug Mode
-
-Run the renderer with visible console output:
-
-```bash
-python3 ~/.local/bin/gif_desktop.py your.gif --instance-id debug 2>&1
-```
-
-## Acknowledgments
-
-- Built with [PyQt6](https://www.riverbankcomputing.com/software/pyqt/) / [PySide6](https://doc.qt.io/qtforpython/)
-- GIF decoding via [Pillow](https://python-pillow.org/)
-- KWin scripting inspired by [KDE Community](https://community.kde.org/KWin/Scripting)
+See [LICENSE](LICENSE) or <https://www.gnu.org/licenses/> for the full text.
