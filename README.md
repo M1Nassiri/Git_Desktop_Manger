@@ -8,7 +8,6 @@
 
 - [Features](#features)
 - [Requirements](#requirements)
-- [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Manager TUI](#manager-tui)
 - [Overlay Controls](#overlay-controls)
@@ -16,7 +15,6 @@
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
 - [Uninstallation](#uninstallation)
-- [License](#license)
 
 ---
 
