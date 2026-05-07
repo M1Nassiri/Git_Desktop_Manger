@@ -76,26 +76,6 @@
 
 ---
 
-## Installation
-
-### One-liner (from release)
-
-```bash
-curl -fsSL https://github.com/yourname/gif-desktop/releases/latest/download/install.sh | bash
-```
-
-### Manual (from source)
-
-```bash
-# 1. Clone or download the repository
-git clone https://github.com/yourname/gif-desktop.git
-cd gif-desktop
-
-# 2. Run the installer
-chmod +x install.sh
-./install.sh
-```
-
 ### What the installer does
 
 1. **Checks dependencies** — verifies Python 3.8+, pip3, and display server
@@ -424,14 +404,6 @@ Run the renderer with visible console output:
 ```bash
 python3 ~/.local/bin/gif_desktop.py your.gif --instance-id debug 2>&1
 ```
-
----
-
-## License
-
-MIT License — see [LICENSE](LICENSE) for details.
-
----
 
 ## Acknowledgments
 
