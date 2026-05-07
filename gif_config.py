@@ -58,6 +58,7 @@ DEFAULT_INSTANCE = {
     "path":       "",
     "opacity":    1.0,
     "auto_scale": 0.25,
+    "speed":      1.0,
     "autostart":  False,
     "display":    "",
     "monitor":    None,
@@ -174,7 +175,7 @@ PartOf=graphical-session.target
 [Service]
 Type=simple
 ExecStartPre=/bin/sleep 3
-ExecStart=python3 {renderer} {gif_path} --instance-id={iid} --opacity={inst.get('opacity', 1.0)} --auto-scale={inst.get('auto_scale', 0.25)}
+ExecStart=python3 {renderer} {gif_path} --instance-id={iid} --opacity={inst.get('opacity', 1.0)} --auto-scale={inst.get('auto_scale', 0.25)} --speed={inst.get('speed', 1.0)}
 Restart=on-failure
 RestartSec=5
 PassEnvironment=DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS QT_QPA_PLATFORM XDG_SESSION_TYPE
@@ -219,7 +220,7 @@ def write_autostart(iid, inst):
     content = f"""[Desktop Entry]
 Name=GIF Desktop: {inst['name']}
 Comment=Animated GIF overlay
-Exec=python3 {renderer} "{inst['path']}" --instance-id={iid} --opacity={inst.get('opacity', 1.0)} --auto-scale={inst.get('auto_scale', 0.25)}
+Exec=python3 {renderer} "{inst['path']}" --instance-id={iid} --opacity={inst.get('opacity', 1.0)} --auto-scale={inst.get('auto_scale', 0.25)} --speed={inst.get('speed', 1.0)}
 Type=Application
 X-GNOME-Autostart-enabled=true
 """
