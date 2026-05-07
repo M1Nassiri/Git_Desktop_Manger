@@ -29,8 +29,6 @@
 | **Auto-scale** | Set initial size as a fraction of screen height |
 | **Persistent State** | Position and size remembered across restarts |
 | **Autostart** | Optional systemd user services or XDG autostart entries |
-| **Monitor Pinning** | Pin overlays to specific monitors |
-| **Workspace Sticky** | Stay visible across all virtual desktops |
 | **Always on Top** | Floats above all other windows |
 | **Taskbar Hidden** | No clutter in your taskbar or alt-tab switcher |
 | **X11 Support** | `_NET_WM_STATE` hints via `xprop`/`wmctrl` |
