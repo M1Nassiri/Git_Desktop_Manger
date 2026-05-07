@@ -159,7 +159,7 @@ class ManagerTUI:
         list_h, list_w = h - 6, w - 4
         draw_box(self.stdscr, 2, 1, list_h + 2, list_w + 2, " Overlays ")
 
-        head = f"  {'NAME':<15} {'STATUS':<12} {'AUTO':<8} {'OPACITY':<10} {'SCALE':<8} {'FILE'}"
+        head = f"  {'NAME':<15} {'STATUS':<12} {'AUTO':<8} {'OPACITY':<10} {'SCALE':<8} {'SPEED':<8} {'FILE'}"
         safe_add(self.stdscr, 3, 3, head, curses.color_pair(C_DIM) | curses.A_BOLD)
 
         if not self.instances:
@@ -175,6 +175,7 @@ class ManagerTUI:
                 path = inst.get('path', '')
                 opacity = inst.get('opacity', 1.0)
                 scale = inst.get('auto_scale', 0.25)
+                speed = inst.get('speed', 1.0)
 
                 if 'name' in inst and 'path' in inst:
                     active = cfg.is_service_active(iid, inst['name'])
@@ -192,8 +193,9 @@ class ManagerTUI:
                          style if is_sel else curses.color_pair(auto_str[1]))
                 safe_add(self.stdscr, y, 41, f"{int(opacity*100)}%", style)
                 safe_add(self.stdscr, y, 52, f"{int(scale*100)}%", style)
+                safe_add(self.stdscr, y, 61, f"{speed:.1f}x", style)
                 file_part = Path(path).name if path else '[missing]'
-                safe_add(self.stdscr, y, 61, file_part[:w-64], style)
+                safe_add(self.stdscr, y, 71, file_part[:w-74], style)
 
         safe_add(self.stdscr, h-2, 2, " [A] Add  [S] Start/Stop  [E] Autostart  [D] Delete  [R] Refresh  [Q] Quit", curses.color_pair(C_PRIMARY))
         if self.msg: safe_add(self.stdscr, h-1, 2, f"» {self.msg}", curses.color_pair(C_ACCENT))
@@ -257,7 +259,7 @@ class ManagerTUI:
         h, w = s.getmaxyx()
 
         # One big dialog for all fields
-        bw, bh = min(w-8, 64), 18
+        bw, bh = min(w-8, 64), 21
         bx, by = (w-bw)//2, (h-bh)//2
 
         draw_box(s, by, bx, bh, bw, " Add New Overlay ", C_PRIMARY)
@@ -283,7 +285,11 @@ class ManagerTUI:
         row += 3
         scale = prompt_in_box(s, row, bx+3, "Scale (0.1 to 1.0):", "0.25", 10)
 
-        # Field 5: Autostart yes/no
+        # Field 5: Speed
+        row += 3
+        speed = prompt_in_box(s, row, bx+3, "Speed (0.1 to 5.0):", "1.0", 10)
+
+        # Field 6: Autostart yes/no
         row += 3
         autostart = yesno_in_box(s, row, bx+3, "Autostart on login")
 
@@ -294,8 +300,10 @@ class ManagerTUI:
         try:
             opacity_f = float(opacity)
             scale_f = float(scale)
+            speed_f = float(speed)
+            speed_f = max(0.1, min(5.0, speed_f))
         except ValueError:
-            self.msg = "Error: Invalid opacity or scale value!"; return
+            self.msg = "Error: Invalid opacity, scale, or speed value!"; return
 
         iid = cfg.new_instance_id()
         inst = {
@@ -303,6 +311,7 @@ class ManagerTUI:
             "path": path,
             "opacity": opacity_f,
             "auto_scale": scale_f,
+            "speed": speed_f,
             "autostart": autostart
         }
 
